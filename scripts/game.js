@@ -24,27 +24,7 @@ let ball = {
 
 let gravity = { x: 0, y: 0 };
 
-function handleOrientation(event) {
-  gravity.x = event.gamma / 90;
-  gravity.y = event.beta / 90;
-}
-
-function requestOrientationPermission() {
-  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-    DeviceOrientationEvent.requestPermission().then(response => {
-      if (response === 'granted') {
-        window.addEventListener('deviceorientation', handleOrientation);
-      } else {
-        alert('Device orientation permission denied.');
-      }
-    }).catch(console.error);
-  } else {
-    window.addEventListener('deviceorientation', handleOrientation);
-  }
-}
-
 document.body.addEventListener('click', requestOrientationPermission, { once: true });
-
 
 function resetLevel() {
   ball.x = canvas.width / 2;
