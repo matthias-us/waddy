@@ -1,16 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
   <title>Waddington Game</title>
-  <link rel="stylesheet" href="styles.css">
+
+  <!-- Fullscreen & PWA for iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#3b82f6" />
+  <link rel="apple-touch-icon" href="icon.png" />
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
+
+  <!-- JS scripts -->
   <script src="scripts/perlin.js"></script>
   <script src="scripts/game.js"></script>
+
+  <!-- Request Device Orientation on First Tap -->
+  <script>
+    function handleOrientation(event) {
+      console.log("Orientation granted", event.gamma, event.beta);
+    }
+
+    function requestOrientationPermission() {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission().then(response => {
+          if (response === 'granted') {
+            window.addEventListener('deviceorientation', handleOrientation);
+          } else {
+            alert('Permission for orientation not granted');
+          }
+        }).catch(console.error);
+      } else {
+        window.addEventListener('deviceorientation', handleOrientation);
+      }
+    }
+
+    document.body.addEventListener('click', requestOrientationPermission, { once: true });
+    document.body.addEventListener('touchstart', requestOrientationPermission, { once: true });
+  </script>
 </body>
 </html>
