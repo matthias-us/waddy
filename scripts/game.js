@@ -10,6 +10,9 @@ window.addEventListener('resize', () => {
   canvas.height = window.innerHeight;
 });
 
+let targets = [];
+let holes = [];
+
 let ball = {
   x: canvas.width / 2,
   y: canvas.height / 2,
@@ -42,6 +45,63 @@ function requestOrientationPermission() {
 
 document.body.addEventListener('click', requestOrientationPermission, { once: true });
 
+
+function resetLevel() {
+  ball.x = canvas.width / 2;
+  ball.y = canvas.height / 2;
+  ball.vx = 0;
+  ball.vy = 0;
+
+  targets = [];
+  holes = [];
+
+  // Add 3 random targets
+  for (let i = 0; i < 3; i++) {
+    targets.push({
+      x: Math.random() * (canvas.width - 40) + 20,
+      y: Math.random() * (canvas.height - 40) + 20,
+      radius: 15
+    });
+  }
+
+  // Add 1-2 random holes
+  const numHoles = 1 + Math.floor(Math.random() * 2);
+  for (let i = 0; i < numHoles; i++) {
+    holes.push({
+      x: Math.random() * (canvas.width - 60) + 30,
+      y: Math.random() * (canvas.height - 60) + 30,
+      radius: 25
+    });
+  }
+}
+
+
+function checkCollisions() {
+  // Filter out targets that are collected
+  targets = targets.filter(target => {
+    const dx = ball.x - target.x;
+    const dy = ball.y - target.y;
+    return Math.hypot(dx, dy) > ball.radius + target.radius;
+  });
+
+  // Check for falling into a hole
+  for (let hole of holes) {
+    const dx = ball.x - hole.x;
+    const dy = ball.y - hole.y;
+    if (Math.hypot(dx, dy) < ball.radius + hole.radius) {
+      alert('You fell into a hole! Try again.');
+      resetLevel();
+      return;
+    }
+  }
+
+  if (targets.length === 0) {
+    alert('Level completed!');
+    resetLevel();
+  }
+}
+
+
 const terrainScale = 0.005;
 function getTerrainHeight(x, y) {
   return Perlin.noise(x * terrainScale, y * terrainScale, 0) * 100;
@@ -71,37 +131,23 @@ function updatePhysics() {
   ball.y = Math.min(Math.max(ball.radius, ball.y), canvas.height - ball.radius);
 }
 
-const light = { x: -1, y: -1 };
-const lightMag = Math.sqrt(light.x**2 + light.y**2);
-const gradMag = Math.sqrt(gradient.x**2 + gradient.y**2);
-const dot = (gradient.x * light.x + gradient.y * light.y) / (lightMag * gradMag + 1e-6);
-const shade = Math.floor(200 + dot * 55); // high contrast from directional light
-ctx.fillStyle = `rgb(${shade}, ${shade}, ${shade})`;
-
 function drawTerrain() {
   const step = 20;
   for (let x = 0; x < canvas.width; x += step) {
     for (let y = 0; y < canvas.height; y += step) {
-      const gradient = getTerrainGradient(x, y);
-      const shading = gradient.x + gradient.y;
-      const shade = Math.floor(128 + shading * 10);
+      const light = { x: -1, y: -1 };
+      const lightMag = Math.sqrt(light.x**2 + light.y**2);
+      const gradMag = Math.sqrt(gradient.x**2 + gradient.y**2);
+      const dot = (gradient.x * light.x + gradient.y * light.y) / (lightMag * gradMag + 1e-6);
+      const shade = Math.floor(200 + dot * 55); // high contrast from directional light
       ctx.fillStyle = `rgb(${shade}, ${shade}, ${shade})`;
       ctx.fillRect(x, y, step, step);
     }
   }
 }
 
-let targets = [
-  { x: canvas.width * 0.25, y: canvas.height * 0.3, radius: 15 },
-  { x: canvas.width * 0.75, y: canvas.height * 0.7, radius: 15 }
-];
-
-let holes = [
-  { x: canvas.width * 0.5, y: canvas.height * 0.5, radius: 25 }
-];
-
 function drawTargets() {
-  ctx.fillStyle = '#22c55e'; // green
+  ctx.fillStyle = '#22c55e';
   targets.forEach(t => {
     ctx.beginPath();
     ctx.arc(t.x, t.y, t.radius, 0, Math.PI * 2);
@@ -128,6 +174,7 @@ function drawBall() {
 function gameLoop() {
   console.log('Game loop running');
   updatePhysics();
+  checkCollisions();
   drawTerrain();
   drawTargets();
   drawHoles();
@@ -135,4 +182,5 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
+resetLevel();
 gameLoop();
