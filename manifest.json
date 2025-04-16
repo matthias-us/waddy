@@ -1,0 +1,9 @@
+{
+  "name": "Tilt Ball Game",
+  "short_name": "TiltBall",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6"
+}
