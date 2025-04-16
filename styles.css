@@ -4,6 +4,13 @@ body {
   background-color: #f0f4f8;
 }
 
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 #gameCanvas {
   display: block;
   touch-action: none;
