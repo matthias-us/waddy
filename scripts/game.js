@@ -71,17 +71,51 @@ function updatePhysics() {
   ball.y = Math.min(Math.max(ball.radius, ball.y), canvas.height - ball.radius);
 }
 
+const light = { x: -1, y: -1 };
+const lightMag = Math.sqrt(light.x**2 + light.y**2);
+const gradMag = Math.sqrt(gradient.x**2 + gradient.y**2);
+const dot = (gradient.x * light.x + gradient.y * light.y) / (lightMag * gradMag + 1e-6);
+const shade = Math.floor(200 + dot * 55); // high contrast from directional light
+ctx.fillStyle = `rgb(${shade}, ${shade}, ${shade})`;
+
 function drawTerrain() {
   const step = 20;
   for (let x = 0; x < canvas.width; x += step) {
     for (let y = 0; y < canvas.height; y += step) {
       const gradient = getTerrainGradient(x, y);
       const shading = gradient.x + gradient.y;
-      const shade = Math.floor(128 + shading * 5);
+      const shade = Math.floor(128 + shading * 10);
       ctx.fillStyle = `rgb(${shade}, ${shade}, ${shade})`;
       ctx.fillRect(x, y, step, step);
     }
   }
+}
+
+let targets = [
+  { x: canvas.width * 0.25, y: canvas.height * 0.3, radius: 15 },
+  { x: canvas.width * 0.75, y: canvas.height * 0.7, radius: 15 }
+];
+
+let holes = [
+  { x: canvas.width * 0.5, y: canvas.height * 0.5, radius: 25 }
+];
+
+function drawTargets() {
+  ctx.fillStyle = '#22c55e'; // green
+  targets.forEach(t => {
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function drawHoles() {
+  ctx.fillStyle = '#000';
+  holes.forEach(h => {
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
 }
 
 function drawBall() {
@@ -95,6 +129,8 @@ function gameLoop() {
   console.log('Game loop running');
   updatePhysics();
   drawTerrain();
+  drawTargets();
+  drawHoles();
   drawBall();
   requestAnimationFrame(gameLoop);
 }
