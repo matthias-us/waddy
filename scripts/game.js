@@ -21,16 +21,22 @@ let ball = {
 
 let gravity = { x: 0, y: 0 };
 
-window.addEventListener('deviceorientation', event => {
+function handleOrientation(event) {
   gravity.x = event.gamma / 90;
   gravity.y = event.beta / 90;
-});
+}
 
 function requestOrientationPermission() {
   if (typeof DeviceOrientationEvent.requestPermission === 'function') {
     DeviceOrientationEvent.requestPermission().then(response => {
-      if (response !== 'granted') alert('Device orientation not granted.');
+      if (response === 'granted') {
+        window.addEventListener('deviceorientation', handleOrientation);
+      } else {
+        alert('Device orientation permission denied.');
+      }
     }).catch(console.error);
+  } else {
+    window.addEventListener('deviceorientation', handleOrientation);
   }
 }
 
@@ -86,6 +92,7 @@ function drawBall() {
 }
 
 function gameLoop() {
+  console.log('Game loop running');
   updatePhysics();
   drawTerrain();
   drawBall();
