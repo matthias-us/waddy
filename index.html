@@ -11,7 +11,7 @@
     <link rel="apple-touch-icon" href="icon.png">
     <style>
         body { margin: 0; overflow: hidden; background-color: #000000; }
-        canvas { display:ensiva: block; }
+        canvas { display: block; }
         #permissionButton {
             position: absolute;
             top: 10px;
@@ -87,13 +87,6 @@
                 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
                 document.body.appendChild(renderer.domElement);
 
-                // Fallback cube
-                const cubeGeometry = new THREE.BoxGeometry(5, 5, 5);
-                const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-                const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-                cube.position.set(0, 0, 10);
-                scene.add(cube);
-
                 // Terrain generation
                 const width = 100;
                 const height = 100;
@@ -109,29 +102,41 @@
                 geometry.attributes.position.needsUpdate = true;
                 geometry.computeVertexNormals();
 
-                const material = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.7 });
+                const material = new THREE.MeshStandardMaterial({ 
+                    color: 0x888888, 
+                    roughness: 0.7,
+                    depthTest: true,
+                    depthWrite: true
+                });
                 const terrain = new THREE.Mesh(geometry, material);
                 terrain.rotation.x = 0;
                 terrain.receiveShadow = true;
                 terrain.castShadow = true;
-                terrain.renderOrder = 1; // Render terrain first
+                terrain.renderOrder = 1;
                 scene.add(terrain);
 
                 // Marble creation
                 const marbleRadius = 1;
                 const marbleGeometry = new THREE.SphereGeometry(marbleRadius, 32, 32);
-                const marbleMaterial = new THREE.MeshStandardMaterial({ color: 0x87CEEB, roughness: 0.5, metalness: 0.2 });
+                const marbleMaterial = new THREE.MeshStandardMaterial({ 
+                    color: 0x87CEEB, 
+                    roughness: 0.5, 
+                    metalness: 0.2,
+                    depthTest: true,
+                    depthWrite: true
+                });
                 const marble = new THREE.Mesh(marbleGeometry, marbleMaterial);
                 marble.position.set(0, 0, 5);
                 marble.castShadow = true;
                 marble.receiveShadow = true;
-                marble.renderOrder = 2; // Render marble after terrain
+                marble.renderOrder = 2;
                 scene.add(marble);
 
                 // Debug sphere
                 const debugSphereGeometry = new THREE.SphereGeometry(0.2, 16, 16);
                 const debugSphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
                 const debugSphere = new THREE.Mesh(debugSphereGeometry, debugSphereMaterial);
+                debugSphere.renderOrder = 3;
                 scene.add(debugSphere);
 
                 // Lighting
@@ -199,7 +204,7 @@
                     permissionButton.style.display = 'none';
                 }
 
-                // Mouse drag for non-mobile (controls light and tilt)
+                // Mouse drag for non-mobile
                 let isDragging = false;
                 let previousMouseX = 0, previousMouseY = 0;
                 let phi = Math.PI / 4, theta = Math.PI / 4;
@@ -217,9 +222,8 @@
                             const deltaY = event.clientY - previousMouseY;
                             phi -= deltaX * 0.005;
                             theta = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, theta + deltaY * 0.005));
-                            // Map mouse movement to tilt
-                            gamma = -deltaX * 0.01; // Horizontal drag
-                            beta = -deltaY * 0.01; // Vertical drag
+                            gamma = -deltaX * 0.01;
+                            beta = -deltaY * 0.01;
                             previousMouseX = event.clientX;
                             previousMouseY = event.clientY;
                         }
@@ -238,8 +242,8 @@
                 const dt = 1 / 60;
 
                 function getTerrainHeight(x, y) {
-                    const gridX = (x + 50) / 100 * (width - 1);
-                    const gridY = (y + 50) / 100 * (height - 1);
+                    const gridX = Math.max(0, Math.min(width - 1, (x + 50) / 100 * (width - 1)));
+                    const gridY = Math.max(0, Math.min(height - 1, (y + 50) / 100 * (height - 1)));
                     const x0 = Math.floor(gridX);
                     const y0 = Math.floor(gridY);
                     const x1 = Math.min(x0 + 1, width - 1);
@@ -292,6 +296,8 @@
                     // Update marble physics
                     const terrainHeight = getTerrainHeight(marble.position.x, marble.position.y);
                     debugSphere.position.set(marble.position.x, marble.position.y, terrainHeight);
+                    marble.position.z = terrainHeight + marbleRadius + 0.3; // Ensure on top
+
                     const slope = getTerrainSlope(marble.position.x, marble.position.y);
                     let acceleration = new THREE.Vector3(slope.x * gravity, slope.y * gravity, 0);
                     acceleration.x += Math.sin(gamma) * gravity;
@@ -301,9 +307,6 @@
                     velocity.multiplyScalar(friction);
                     marble.position.add(velocity.clone().multiplyScalar(dt));
 
-                    // Ensure marble stays on surface
-                    marble.position.z = terrainHeight + marbleRadius + 0.2;
-
                     // Boundary check
                     marble.position.x = Math.max(-49, Math.min(49, marble.position.x));
                     marble.position.y = Math.max(-49, Math.min(49, marble.position.y));
@@ -311,7 +314,7 @@
                     // Debug height
                     if (marble.position.z < terrainHeight) {
                         console.warn(`Marble below surface: z=${marble.position.z}, terrainHeight=${terrainHeight}`);
-                        marble.position.z = terrainHeight + marbleRadius + 0.2;
+                        marble.position.z = terrainHeight + marbleRadius + 0.3;
                     }
 
                     // Simulate rolling
