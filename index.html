@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Perlin Terrain with Dynamic Lighting</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <title>Perlin Terrain</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; }
@@ -110,7 +115,6 @@
                             permissionButton.textContent = 'Permission Error';
                         });
                 } else {
-                    // For older devices that don't require explicit permission
                     hasPermission = true;
                     permissionButton.style.display = 'none';
                     window.addEventListener('deviceorientation', handleOrientation);
@@ -122,7 +126,7 @@
                 gamma = event.gamma ? event.gamma * Math.PI / 180 : 0; // Roll
             }
         } else {
-            permissionButton.style.display = 'none'; // Hide button on non-mobile
+            permissionButton.style.display = 'none';
         }
 
         // Mouse drag for non-mobile
@@ -159,13 +163,11 @@
 
             // Update light position
             if (isMobile && hasPermission) {
-                // Device orientation for mobile
                 const lightX = Math.sin(gamma) * 50;
                 const lightZ = Math.cos(gamma) * Math.cos(beta) * 50;
                 const lightY = Math.sin(beta) * 50 + 50;
                 directionalLight.position.set(lightX, lightY, lightZ);
             } else if (!isMobile) {
-                // Mouse-based spherical coordinates for non-mobile
                 const lightX = 50 * Math.sin(phi) * Math.sin(theta);
                 const lightZ = 50 * Math.cos(theta);
                 const lightY = 50 * Math.cos(phi) * Math.sin(theta);
