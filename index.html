@@ -11,7 +11,7 @@
     <link rel="apple-touch-icon" href="icon.png">
     <style>
         body { margin: 0; overflow: hidden; background-color: #000000; }
-        canvas { display: block; }
+        canvas { display:ensiva: block; }
         #permissionButton {
             position: absolute;
             top: 10px;
@@ -68,12 +68,10 @@
 
         async function init() {
             try {
-                // Check WebGL support
                 if (!isWebGLAvailable()) {
                     throw new Error('WebGL is not supported in this browser');
                 }
 
-                // Load scripts
                 await Promise.all([
                     loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'),
                     loadScript('https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js')
@@ -81,7 +79,7 @@
 
                 // Scene setup
                 const scene = new THREE.Scene();
-                scene.background = new THREE.Color(0x000000); // Black background
+                scene.background = new THREE.Color(0x000000);
                 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
                 const renderer = new THREE.WebGLRenderer({ antialias: true });
                 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -89,21 +87,20 @@
                 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
                 document.body.appendChild(renderer.domElement);
 
-                // Fallback cube if terrain fails
+                // Fallback cube
                 const cubeGeometry = new THREE.BoxGeometry(5, 5, 5);
                 const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
                 const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
                 cube.position.set(0, 0, 10);
                 scene.add(cube);
 
-                // Terrain generation with Perlin noise
+                // Terrain generation
                 const width = 100;
                 const height = 100;
                 const geometry = new THREE.PlaneGeometry(100, 100, width - 1, height - 1);
                 const simplex = new SimplexNoise();
                 const vertices = geometry.attributes.position.array;
 
-                // Initial terrain height
                 for (let i = 0; i < vertices.length; i += 3) {
                     const x = vertices[i];
                     const y = vertices[i + 1];
@@ -114,9 +111,10 @@
 
                 const material = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.7 });
                 const terrain = new THREE.Mesh(geometry, material);
-                terrain.rotation.x = 0; // Align parallel to screen plane
+                terrain.rotation.x = 0;
                 terrain.receiveShadow = true;
                 terrain.castShadow = true;
+                terrain.renderOrder = 1; // Render terrain first
                 scene.add(terrain);
 
                 // Marble creation
@@ -124,12 +122,13 @@
                 const marbleGeometry = new THREE.SphereGeometry(marbleRadius, 32, 32);
                 const marbleMaterial = new THREE.MeshStandardMaterial({ color: 0x87CEEB, roughness: 0.5, metalness: 0.2 });
                 const marble = new THREE.Mesh(marbleGeometry, marbleMaterial);
-                marble.position.set(0, 0, 5); // Start above terrain
+                marble.position.set(0, 0, 5);
                 marble.castShadow = true;
                 marble.receiveShadow = true;
+                marble.renderOrder = 2; // Render marble after terrain
                 scene.add(marble);
 
-                // Debug sphere to mark terrain height
+                // Debug sphere
                 const debugSphereGeometry = new THREE.SphereGeometry(0.2, 16, 16);
                 const debugSphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
                 const debugSphere = new THREE.Mesh(debugSphereGeometry, debugSphereMaterial);
@@ -156,16 +155,16 @@
                 camera.position.set(0, 0, 50);
                 camera.lookAt(0, 0, 0);
 
-                // Detect if device is mobile
+                // Mobile detection
                 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || ('ontouchstart' in window);
 
-                // Handle device orientation for mobile
+                // Device orientation for mobile
                 let beta = 0, gamma = 0;
                 let hasPermission = false;
                 const permissionButton = document.getElementById('permissionButton');
 
                 if (isMobile) {
-                    permissionButton.style.display = 'block'; // Show button only on mobile
+                    permissionButton.style.display = 'block';
                     permissionButton.addEventListener('click', () => {
                         console.log('Requesting device orientation permission');
                         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -177,16 +176,14 @@
                                         permissionButton.style.display = 'none';
                                         window.addEventListener('deviceorientation', handleOrientation);
                                     } else {
-                                        console.log('Device orientation permission denied');
                                         permissionButton.textContent = 'Permission Denied';
                                     }
                                 })
                                 .catch(error => {
-                                    console.error('Error requesting permission:', error);
+                                    console.error('Permission error:', error);
                                     permissionButton.textContent = 'Permission Error';
                                 });
                         } else {
-                            console.log('No permission required, enabling orientation');
                             hasPermission = true;
                             permissionButton.style.display = 'none';
                             window.addEventListener('deviceorientation', handleOrientation);
@@ -194,15 +191,15 @@
                     });
 
                     function handleOrientation(event) {
-                        beta = event.beta ? event.beta * Math.PI / 180 : 0; // Pitch
-                        gamma = event.gamma ? event.gamma * Math.PI / 180 : 0; // Roll
+                        beta = event.beta ? event.beta * Math.PI / 180 : 0;
+                        gamma = event.gamma ? event.gamma * Math.PI / 180 : 0;
                         console.log('Orientation:', { beta, gamma });
                     }
                 } else {
-                    permissionButton.style.display = 'none'; // Explicitly hide on non-mobile
+                    permissionButton.style.display = 'none';
                 }
 
-                // Mouse drag for non-mobile
+                // Mouse drag for non-mobile (controls light and tilt)
                 let isDragging = false;
                 let previousMouseX = 0, previousMouseY = 0;
                 let phi = Math.PI / 4, theta = Math.PI / 4;
@@ -220,6 +217,9 @@
                             const deltaY = event.clientY - previousMouseY;
                             phi -= deltaX * 0.005;
                             theta = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, theta + deltaY * 0.005));
+                            // Map mouse movement to tilt
+                            gamma = -deltaX * 0.01; // Horizontal drag
+                            beta = -deltaY * 0.01; // Vertical drag
                             previousMouseX = event.clientX;
                             previousMouseY = event.clientY;
                         }
@@ -232,13 +232,12 @@
 
                 // Physics for marble
                 let velocity = new THREE.Vector3(0, 0, 0);
-                const gravity = 9.8; // m/s^2
-                const friction = 0.98; // Damping factor
-                const mass = 1; // Arbitrary mass
-                const dt = 1 / 60; // Time step (60 FPS)
+                const gravity = 9.8;
+                const friction = 0.98;
+                const mass = 1;
+                const dt = 1 / 60;
 
                 function getTerrainHeight(x, y) {
-                    // Bilinear interpolation for smooth height
                     const gridX = (x + 50) / 100 * (width - 1);
                     const gridY = (y + 50) / 100 * (height - 1);
                     const x0 = Math.floor(gridX);
@@ -259,14 +258,12 @@
                     const fx = gridX - x0;
                     const fy = gridY - y0;
 
-                    // Bilinear interpolation
                     const h0 = h00 * (1 - fx) + h10 * fx;
                     const h1 = h01 * (1 - fx) + h11 * fx;
                     return h0 * (1 - fy) + h1 * fy;
                 }
 
                 function getTerrainSlope(x, y) {
-                    // Approximate slope using finite differences
                     const h = 0.1;
                     const height = getTerrainHeight(x, y);
                     const heightX = getTerrainHeight(x + h, y);
@@ -276,13 +273,13 @@
                     return new THREE.Vector3(-slopeX, -slopeY, 0);
                 }
 
-                // Animation loop with terrain undulation and marble physics
+                // Animation loop
                 let time = 0;
                 let lastPosition = marble.position.clone();
                 function animate() {
                     requestAnimationFrame(animate);
 
-                    // Update terrain vertices for undulation
+                    // Update terrain
                     for (let i = 0; i < vertices.length; i += 3) {
                         const x = vertices[i];
                         const y = vertices[i + 1];
@@ -294,19 +291,18 @@
 
                     // Update marble physics
                     const terrainHeight = getTerrainHeight(marble.position.x, marble.position.y);
-                    debugSphere.position.set(marble.position.x, marble.position.y, terrainHeight); // Debug sphere at terrain height
+                    debugSphere.position.set(marble.position.x, marble.position.y, terrainHeight);
                     const slope = getTerrainSlope(marble.position.x, marble.position.y);
                     let acceleration = new THREE.Vector3(slope.x * gravity, slope.y * gravity, 0);
-                    if (isMobile && hasPermission) {
-                        acceleration.x += Math.sin(gamma) * gravity;
-                        acceleration.y -= Math.sin(beta) * gravity;
-                    }
+                    acceleration.x += Math.sin(gamma) * gravity;
+                    acceleration.y -= Math.sin(beta) * gravity;
+                    console.log('Acceleration:', { terrain: slope, tilt: { x: Math.sin(gamma), y: -Math.sin(beta) } });
                     velocity.add(acceleration.multiplyScalar(dt / mass));
                     velocity.multiplyScalar(friction);
                     marble.position.add(velocity.clone().multiplyScalar(dt));
 
-                    // Ensure marble stays on top of terrain surface
-                    marble.position.z = terrainHeight + marbleRadius + 0.1; // Small offset
+                    // Ensure marble stays on surface
+                    marble.position.z = terrainHeight + marbleRadius + 0.2;
 
                     // Boundary check
                     marble.position.x = Math.max(-49, Math.min(49, marble.position.x));
@@ -315,7 +311,7 @@
                     // Debug height
                     if (marble.position.z < terrainHeight) {
                         console.warn(`Marble below surface: z=${marble.position.z}, terrainHeight=${terrainHeight}`);
-                        marble.position.z = terrainHeight + marbleRadius + 0.1;
+                        marble.position.z = terrainHeight + marbleRadius + 0.2;
                     }
 
                     // Simulate rolling
@@ -334,7 +330,7 @@
                         const lightZ = Math.cos(gamma) * Math.cos(beta) * 50;
                         const lightY = Math.sin(beta) * 50 + 50;
                         directionalLight.position.set(lightX, lightY, lightZ);
-                    } else if (!isMobile) {
+                    } else {
                         const lightX = 50 * Math.sin(phi) * Math.sin(theta);
                         const lightZ = 50 * Math.cos(theta);
                         const lightY = 50 * Math.cos(phi) * Math.sin(theta);
