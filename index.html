@@ -1,49 +1,150 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Waddington Game</title>
-
-  <!-- Fullscreen & PWA for iOS -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="theme-color" content="#3b82f6" />
-  <link rel="apple-touch-icon" href="icon.png" />
-  <link rel="manifest" href="manifest.json" />
-
-  <!-- Styles -->
-  <link rel="stylesheet" href="styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Perlin Terrain with Dynamic Lighting</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
 
-  <!-- JS scripts -->
-  <script src="scripts/perlin.js"></script>
-  <script src="scripts/game.js"></script>
+        // Terrain generation with Perlin noise
+        const width = 100;
+        const height = 100;
+        const geometry = new THREE.PlaneGeometry(100, 100, width - 1, height - 1);
+        const simplex = new SimplexNoise();
+        const vertices = geometry.attributes.position.array;
 
-  <!-- Request Device Orientation on First Tap -->
-  <script>
-    function handleOrientation(event) {
-      console.log("Orientation granted", event.gamma, event.beta);
-    }
+        for (let i = 0; i < vertices.length; i += 3) {
+            const x = vertices[i];
+            const y = vertices[i + 1];
+            vertices[i + 2] = simplex.noise2D(x * 0.05, y * 0.05) * 5;
+        }
+        geometry.attributes.position.needsUpdate = true;
+        geometry.computeVertexNormals();
 
-    function requestOrientationPermission() {
-      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission().then(response => {
-          if (response === 'granted') {
-            window.addEventListener('deviceorientation', handleOrientation);
-          } else {
-            alert('Permission for orientation not granted');
-          }
-        }).catch(console.error);
-      } else {
-        window.addEventListener('deviceorientation', handleOrientation);
-      }
-    }
+        const material = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.7 });
+        const terrain = new THREE.Mesh(geometry, material);
+        terrain.rotation.x = 0; // Align parallel to screen plane
+        terrain.receiveShadow = true;
+        terrain.castShadow = true;
+        scene.add(terrain);
 
-    document.body.addEventListener('click', requestOrientationPermission, { once: true });
-    document.body.addEventListener('touchstart', requestOrientationPermission, { once: true });
-  </script>
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(0, 50, 50);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 1024;
+        directionalLight.shadow.mapSize.height = 1024;
+        directionalLight.shadow.camera.near = 10;
+        directionalLight.shadow.camera.far = 100;
+        directionalLight.shadow.camera.left = -50;
+        directionalLight.shadow.camera.right = 50;
+        directionalLight.shadow.camera.top = 50;
+        directionalLight.shadow.camera.bottom = -50;
+        scene.add(directionalLight);
+
+        // Camera position
+        camera.position.set(0, 0, 50);
+        camera.lookAt(0, 0, 0);
+
+        // Detect if device is mobile
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        // Handle device orientation for mobile
+        let beta = 0, gamma = 0;
+        if (isMobile) {
+            window.addEventListener('deviceorientation', (event) => {
+                beta = event.beta ? event.beta * Math.PI / 180 : 0; // Pitch
+                gamma = event.gamma ? event.gamma * Math.PI / 180 : 0; // Roll
+            });
+
+            // Request permission for iOS 13+
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            console.log('Device orientation permission granted');
+                        }
+                    })
+                    .catch(console.error);
+            }
+        }
+
+        // Mouse drag for non-mobile
+        let isDragging = false;
+        let previousMouseX = 0, previousMouseY = 0;
+        let phi = Math.PI / 4, theta = Math.PI / 4;
+
+        if (!isMobile) {
+            document.addEventListener('mousedown', (event) => {
+                isDragging = true;
+                previousMouseX = event.clientX;
+                previousMouseY = event.clientY;
+            });
+
+            document.addEventListener('mousemove', (event) => {
+                if (isDragging) {
+                    const deltaX = event.clientX - previousMouseX;
+                    const deltaY = event.clientY - previousMouseY;
+                    phi -= deltaX * 0.005;
+                    theta = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, theta + deltaY * 0.005));
+                    previousMouseX = event.clientX;
+                    previousMouseY = event.clientY;
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Update light position
+            if (isMobile) {
+                // Device orientation for mobile
+                const lightX = Math.sin(gamma) * 50;
+                const lightZ = Math.cos(gamma) * Math.cos(beta) * 50;
+                const lightY = Math.sin(beta) * 50 + 50;
+                directionalLight.position.set(lightX, lightY, lightZ);
+            } else {
+                // Mouse-based spherical coordinates for non-mobile
+                const lightX = 50 * Math.sin(phi) * Math.sin(theta);
+                const lightZ = 50 * Math.cos(theta);
+                const lightY = 50 * Math.cos(phi) * Math.sin(theta);
+                directionalLight.position.set(lightX, lightY, lightZ);
+            }
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
 </body>
 </html>
