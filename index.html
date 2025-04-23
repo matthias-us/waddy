@@ -38,8 +38,8 @@
             color: red;
             font-size: 16px;
             z-index: 1000;
+            text-align: center;
         }
-        /* Ensure layout stays consistent */
         @media (orientation: landscape) {
             body { transform: rotate(0deg); }
         }
@@ -84,7 +84,7 @@
                     loadScript('https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js')
                 ]);
 
-                // Attempt to lock orientation (portrait)
+                // Lock orientation to portrait
                 if (screen.orientation && screen.orientation.lock) {
                     try {
                         await screen.orientation.lock('portrait');
@@ -99,10 +99,18 @@
                 scene.background = new THREE.Color(0x000000);
                 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
                 const renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setClearColor(0x000000, 1);
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 renderer.shadowMap.enabled = true;
                 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
                 document.body.appendChild(renderer.domElement);
+
+                // Fallback plane
+                const fallbackGeometry = new THREE.PlaneGeometry(50, 50);
+                const fallbackMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                const fallbackPlane = new THREE.Mesh(fallbackGeometry, fallbackMaterial);
+                fallbackPlane.position.set(0, 0, 0);
+                scene.add(fallbackPlane);
 
                 // Terrain generation
                 const width = 100;
@@ -111,13 +119,17 @@
                 const simplex = new SimplexNoise();
                 const vertices = geometry.attributes.position.array;
 
-                for (let i = 0; i < vertices.length; i += 3) {
-                    const x = vertices[i];
-                    const y = vertices[i + 1];
-                    vertices[i + 2] = simplex.noise2D(x * 0.05, y * 0.05) * 5;
+                try {
+                    for (let i = 0; i < vertices.length; i += 3) {
+                        const x = vertices[i];
+                        const y = vertices[i + 1];
+                        vertices[i + 2] = simplex.noise2D(x * 0.05, y * 0.05) * 5;
+                    }
+                    geometry.attributes.position.needsUpdate = true;
+                    geometry.computeVertexNormals();
+                } catch (error) {
+                    throw new Error('Failed to generate terrain: ' + error.message);
                 }
-                geometry.attributes.position.needsUpdate = true;
-                geometry.computeVertexNormals();
 
                 const material = new THREE.MeshStandardMaterial({ 
                     color: 0x888888, 
@@ -130,6 +142,7 @@
                 terrain.receiveShadow = true;
                 terrain.castShadow = true;
                 terrain.renderOrder = 1;
+                console.log('Terrain added:', terrain.position);
                 scene.add(terrain);
 
                 // Marble creation
@@ -147,6 +160,7 @@
                 marble.castShadow = true;
                 marble.receiveShadow = true;
                 marble.renderOrder = 2;
+                console.log('Marble added:', marble.position);
                 scene.add(marble);
 
                 // Debug sphere
@@ -154,6 +168,7 @@
                 const debugSphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
                 const debugSphere = new THREE.Mesh(debugSphereGeometry, debugSphereMaterial);
                 debugSphere.renderOrder = 3;
+                console.log('Debug sphere added');
                 scene.add(debugSphere);
 
                 // Lighting
@@ -171,11 +186,13 @@
                 directionalLight.shadow.camera.right = 50;
                 directionalLight.shadow.camera.top = 50;
                 directionalLight.shadow.camera.bottom = -50;
+                console.log('Lights added');
                 scene.add(directionalLight);
 
                 // Camera position
-                camera.position.set(0, 0, 50);
+                camera.position.set(0, 0, 75); // Moved back to ensure visibility
                 camera.lookAt(0, 0, 0);
+                console.log('Camera:', camera.position);
 
                 // Mobile detection
                 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || ('ontouchstart' in window);
@@ -203,9 +220,7 @@
                                 })
                                 .catch(error => {
                                     console.error('Permission error:', error);
-                                    permissionButton.textContent = 'Permission _
-
-Error';
+                                    permissionButton.textContent = 'Permission Error';
                                 });
                         } else {
                             hasPermission = true;
@@ -283,7 +298,9 @@ Error';
 
                     const h0 = h00 * (1 - fx) + h10 * fx;
                     const h1 = h01 * (1 - fx) + h11 * fx;
-                    return h0 * (1 - fy) + h1 * fy;
+                    const height = h0 * (1 - fy) + h1 * fy;
+                    console.log('Terrain height at', { x, y }, ':', height);
+                    return height;
                 }
 
                 function getTerrainSlope(x, y) {
@@ -303,19 +320,23 @@ Error';
                     requestAnimationFrame(animate);
 
                     // Update terrain
-                    for (let i = 0; i < vertices.length; i += 3) {
-                        const x = vertices[i];
-                        const y = vertices[i + 1];
-                        vertices[i + 2] = simplex.noise3D(x * 0.05, y * 0.05, time * 0.1) * 5;
+                    try {
+                        for (let i = 0; i < vertices.length; i += 3) {
+                            const x = vertices[i];
+                            const y = vertices[i + 1];
+                            vertices[i + 2] = simplex.noise3D(x * 0.05, y * 0.05, time * 0.1) * 5;
+                        }
+                        geometry.attributes.position.needsUpdate = true;
+                        geometry.computeVertexNormals();
+                    } catch (error) {
+                        console.error('Terrain update error:', error);
                     }
-                    geometry.attributes.position.needsUpdate = true;
-                    geometry.computeVertexNormals();
                     time += 0.01;
 
                     // Update marble physics
                     const terrainHeight = getTerrainHeight(marble.position.x, marble.position.y);
                     debugSphere.position.set(marble.position.x, marble.position.y, terrainHeight);
-                    marble.position.z = terrainHeight + marbleRadius + 0.4; // Increased offset
+                    marble.position.z = terrainHeight + marbleRadius + 0.5; // Increased offset
 
                     const slope = getTerrainSlope(marble.position.x, marble.position.y);
                     let acceleration = new THREE.Vector3(slope.x * gravity, slope.y * gravity, 0);
@@ -333,44 +354,12 @@ Error';
                     // Debug height
                     if (marble.position.z < terrainHeight) {
                         console.warn(`Marble below surface: z=${marble.position.z}, terrainHeight=${terrainHeight}`);
-                        marble.position.z = terrainHeight + marbleRadius + 0.4;
+                        marble.position.z = terrainHeight + marbleRadius + 0.5;
                     }
+                    console.log('Marble position:', { x: marble.position.x, y: marble.position.y, z: marble.position.z });
 
                     // Simulate rolling
                     const displacement = marble.position.clone().sub(lastPosition);
                     const distance = displacement.length();
                     if (distance > 0) {
-                        const axis = new THREE.Vector3().crossVectors(displacement, new THREE.Vector3(0, 0, 1)).normalize();
-                        const angle = distance / marbleRadius;
-                        marble.rotateOnWorldAxis(axis, angle);
-                    }
-                    lastPosition.copy(marble.position);
-
-                    // Update light position
-                    if (isMobile && hasPermission) {
-                        const lightX = Math.sin(gamma) * 50;
-                        const lightZ = Math.cos(gamma) * Math.cos(beta) * 50;
-                        const lightY = Math.sin(beta) * 50 + 50;
-                        directionalLight.position.set(lightX, lightY, lightZ);
-                    } else {
-                        const lightX = 50 * Math.sin(phi) * Math.sin(theta);
-                        const lightZ = 50 * Math.cos(theta);
-                        const lightY = 50 * Math.cos(phi) * Math.sin(theta);
-                        directionalLight.position.set(lightX, lightY, lightZ);
-                    }
-
-                    renderer.render(scene, camera);
-                }
-                animate();
-
-                // Handle window resize
-                window.addEventListener('resize', () => {
-                    camera.aspect = window.innerWidth / window.innerHeight;
-                    camera.updateProjectionMatrix();
-                    renderer.setSize(window.innerWidth, window.innerHeight);
-                });
-            } catch (error) {
-                console.error('Initialization error:', error);
-                document.getElementById('errorMessage').textContent = 'Error loading app: ' + error.message;
-            }
-        }
+                        const axis =
