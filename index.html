@@ -25,6 +25,7 @@
             border-radius: 5px;
             cursor: pointer;
             z-index: 1000;
+            display: none; /* Hidden by default */
         }
         #permissionButton:hover {
             background-color: #0056b3;
@@ -55,8 +56,24 @@
             });
         }
 
+        // Check WebGL availability
+        function isWebGLAvailable() {
+            try {
+                const canvas = document.createElement('canvas');
+                return !!(window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+            } catch (e) {
+                return false;
+            }
+        }
+
         async function init() {
             try {
+                // Check WebGL support
+                if (!isWebGLAvailable()) {
+                    throw new Error('WebGL is not supported in this browser');
+                }
+
+                // Load scripts
                 await Promise.all([
                     loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'),
                     loadScript('https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js')
@@ -71,6 +88,13 @@
                 renderer.shadowMap.enabled = true;
                 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
                 document.body.appendChild(renderer.domElement);
+
+                // Fallback cube if terrain fails
+                const cubeGeometry = new THREE.BoxGeometry(5, 5, 5);
+                const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+                cube.position.set(0, 0, 10);
+                scene.add(cube);
 
                 // Terrain generation with Perlin noise
                 const width = 100;
@@ -105,6 +129,12 @@
                 marble.receiveShadow = true;
                 scene.add(marble);
 
+                // Debug sphere to mark terrain height
+                const debugSphereGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+                const debugSphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                const debugSphere = new THREE.Mesh(debugSphereGeometry, debugSphereMaterial);
+                scene.add(debugSphere);
+
                 // Lighting
                 const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
                 scene.add(ambientLight);
@@ -127,7 +157,7 @@
                 camera.lookAt(0, 0, 0);
 
                 // Detect if device is mobile
-                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || ('ontouchstart' in window);
 
                 // Handle device orientation for mobile
                 let beta = 0, gamma = 0;
@@ -135,10 +165,13 @@
                 const permissionButton = document.getElementById('permissionButton');
 
                 if (isMobile) {
+                    permissionButton.style.display = 'block'; // Show button only on mobile
                     permissionButton.addEventListener('click', () => {
+                        console.log('Requesting device orientation permission');
                         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
                             DeviceOrientationEvent.requestPermission()
                                 .then(permissionState => {
+                                    console.log('Permission state:', permissionState);
                                     if (permissionState === 'granted') {
                                         hasPermission = true;
                                         permissionButton.style.display = 'none';
@@ -153,6 +186,7 @@
                                     permissionButton.textContent = 'Permission Error';
                                 });
                         } else {
+                            console.log('No permission required, enabling orientation');
                             hasPermission = true;
                             permissionButton.style.display = 'none';
                             window.addEventListener('deviceorientation', handleOrientation);
@@ -162,9 +196,10 @@
                     function handleOrientation(event) {
                         beta = event.beta ? event.beta * Math.PI / 180 : 0; // Pitch
                         gamma = event.gamma ? event.gamma * Math.PI / 180 : 0; // Roll
+                        console.log('Orientation:', { beta, gamma });
                     }
                 } else {
-                    permissionButton.style.display = 'none';
+                    permissionButton.style.display = 'none'; // Explicitly hide on non-mobile
                 }
 
                 // Mouse drag for non-mobile
@@ -259,36 +294,36 @@
 
                     // Update marble physics
                     const terrainHeight = getTerrainHeight(marble.position.x, marble.position.y);
+                    debugSphere.position.set(marble.position.x, marble.position.y, terrainHeight); // Debug sphere at terrain height
                     const slope = getTerrainSlope(marble.position.x, marble.position.y);
                     let acceleration = new THREE.Vector3(slope.x * gravity, slope.y * gravity, 0);
                     if (isMobile && hasPermission) {
-                        // Add tilt-based acceleration
                         acceleration.x += Math.sin(gamma) * gravity;
                         acceleration.y -= Math.sin(beta) * gravity;
                     }
                     velocity.add(acceleration.multiplyScalar(dt / mass));
-                    velocity.multiplyScalar(friction); // Apply friction
+                    velocity.multiplyScalar(friction);
                     marble.position.add(velocity.clone().multiplyScalar(dt));
 
                     // Ensure marble stays on top of terrain surface
-                    marble.position.z = terrainHeight + marbleRadius + 0.1; // Small offset to prevent sinking
+                    marble.position.z = terrainHeight + marbleRadius + 0.1; // Small offset
 
-                    // Boundary check to prevent marble from leaving terrain
+                    // Boundary check
                     marble.position.x = Math.max(-49, Math.min(49, marble.position.x));
                     marble.position.y = Math.max(-49, Math.min(49, marble.position.y));
 
-                    // Debug height to ensure marble is on surface
+                    // Debug height
                     if (marble.position.z < terrainHeight) {
                         console.warn(`Marble below surface: z=${marble.position.z}, terrainHeight=${terrainHeight}`);
                         marble.position.z = terrainHeight + marbleRadius + 0.1;
                     }
 
-                    // Simulate rolling by rotating marble
+                    // Simulate rolling
                     const displacement = marble.position.clone().sub(lastPosition);
                     const distance = displacement.length();
                     if (distance > 0) {
                         const axis = new THREE.Vector3().crossVectors(displacement, new THREE.Vector3(0, 0, 1)).normalize();
-                        const angle = distance / marbleRadius; // Angle = arc length / radius
+                        const angle = distance / marbleRadius;
                         marble.rotateOnWorldAxis(axis, angle);
                     }
                     lastPosition.copy(marble.position);
