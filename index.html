@@ -7,9 +7,27 @@
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; }
+        #permissionButton {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1000;
+        }
+        #permissionButton:hover {
+            background-color: #0056b3;
+        }
     </style>
 </head>
 <body>
+    <button id="permissionButton">Enable Tilt Controls</button>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
     <script>
@@ -70,22 +88,41 @@
 
         // Handle device orientation for mobile
         let beta = 0, gamma = 0;
+        let hasPermission = false;
+        const permissionButton = document.getElementById('permissionButton');
+
         if (isMobile) {
-            window.addEventListener('deviceorientation', (event) => {
-                beta = event.beta ? event.beta * Math.PI / 180 : 0; // Pitch
-                gamma = event.gamma ? event.gamma * Math.PI / 180 : 0; // Roll
+            permissionButton.addEventListener('click', () => {
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(permissionState => {
+                            if (permissionState === 'granted') {
+                                hasPermission = true;
+                                permissionButton.style.display = 'none';
+                                window.addEventListener('deviceorientation', handleOrientation);
+                            } else {
+                                console.log('Device orientation permission denied');
+                                permissionButton.textContent = 'Permission Denied';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error requesting permission:', error);
+                            permissionButton.textContent = 'Permission Error';
+                        });
+                } else {
+                    // For older devices that don't require explicit permission
+                    hasPermission = true;
+                    permissionButton.style.display = 'none';
+                    window.addEventListener('deviceorientation', handleOrientation);
+                }
             });
 
-            // Request permission for iOS 13+
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission()
-                    .then(permissionState => {
-                        if (permissionState === 'granted') {
-                            console.log('Device orientation permission granted');
-                        }
-                    })
-                    .catch(console.error);
+            function handleOrientation(event) {
+                beta = event.beta ? event.beta * Math.PI / 180 : 0; // Pitch
+                gamma = event.gamma ? event.gamma * Math.PI / 180 : 0; // Roll
             }
+        } else {
+            permissionButton.style.display = 'none'; // Hide button on non-mobile
         }
 
         // Mouse drag for non-mobile
@@ -121,13 +158,13 @@
             requestAnimationFrame(animate);
 
             // Update light position
-            if (isMobile) {
+            if (isMobile && hasPermission) {
                 // Device orientation for mobile
                 const lightX = Math.sin(gamma) * 50;
                 const lightZ = Math.cos(gamma) * Math.cos(beta) * 50;
                 const lightY = Math.sin(beta) * 50 + 50;
                 directionalLight.position.set(lightX, lightY, lightZ);
-            } else {
+            } else if (!isMobile) {
                 // Mouse-based spherical coordinates for non-mobile
                 const lightX = 50 * Math.sin(phi) * Math.sin(theta);
                 const lightZ = 50 * Math.cos(theta);
