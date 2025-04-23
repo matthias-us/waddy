@@ -25,7 +25,7 @@
             border-radius: 5px;
             cursor: pointer;
             z-index: 1000;
-            display: none; /* Hidden by default */
+            display: none;
         }
         #permissionButton:hover {
             background-color: #0056b3;
@@ -38,6 +38,13 @@
             color: red;
             font-size: 16px;
             z-index: 1000;
+        }
+        /* Ensure layout stays consistent */
+        @media (orientation: landscape) {
+            body { transform: rotate(0deg); }
+        }
+        @media (orientation: portrait) {
+            body { transform: rotate(0deg); }
         }
     </style>
 </head>
@@ -76,6 +83,16 @@
                     loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'),
                     loadScript('https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js')
                 ]);
+
+                // Attempt to lock orientation (portrait)
+                if (screen.orientation && screen.orientation.lock) {
+                    try {
+                        await screen.orientation.lock('portrait');
+                        console.log('Orientation locked to portrait');
+                    } catch (error) {
+                        console.warn('Orientation lock failed:', error);
+                    }
+                }
 
                 // Scene setup
                 const scene = new THREE.Scene();
@@ -186,7 +203,9 @@
                                 })
                                 .catch(error => {
                                     console.error('Permission error:', error);
-                                    permissionButton.textContent = 'Permission Error';
+                                    permissionButton.textContent = 'Permission _
+
+Error';
                                 });
                         } else {
                             hasPermission = true;
@@ -296,7 +315,7 @@
                     // Update marble physics
                     const terrainHeight = getTerrainHeight(marble.position.x, marble.position.y);
                     debugSphere.position.set(marble.position.x, marble.position.y, terrainHeight);
-                    marble.position.z = terrainHeight + marbleRadius + 0.3; // Ensure on top
+                    marble.position.z = terrainHeight + marbleRadius + 0.4; // Increased offset
 
                     const slope = getTerrainSlope(marble.position.x, marble.position.y);
                     let acceleration = new THREE.Vector3(slope.x * gravity, slope.y * gravity, 0);
@@ -314,7 +333,7 @@
                     // Debug height
                     if (marble.position.z < terrainHeight) {
                         console.warn(`Marble below surface: z=${marble.position.z}, terrainHeight=${terrainHeight}`);
-                        marble.position.z = terrainHeight + marbleRadius + 0.3;
+                        marble.position.z = terrainHeight + marbleRadius + 0.4;
                     }
 
                     // Simulate rolling
@@ -355,8 +374,3 @@
                 document.getElementById('errorMessage').textContent = 'Error loading app: ' + error.message;
             }
         }
-
-        init();
-    </script>
-</body>
-</html>
