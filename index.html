@@ -70,7 +70,7 @@
 
         // Marble creation
         const marbleGeometry = new THREE.SphereGeometry(1, 32, 32);
-        const marbleMaterial = new THREE.MeshStandardMaterial({ color: 0x87CEEB, roughness: 0.5, metalness: 0.8 });
+        const marbleMaterial = new THREE.MeshStandardMaterial({ color: 0x87CEEB, roughness: 0.5, metalness: 0.2 });
         const marble = new THREE.Mesh(marbleGeometry, marbleMaterial);
         marble.position.set(0, 0, 5); // Start at terrain height
         marble.castShadow = true;
@@ -226,7 +226,7 @@
             // Keep marble on terrain surface
             const terrainHeight = getTerrainHeight(marble.position.x, marble.position.y);
             //marble.position.set(marble.position.x, marble.position.y, terrainHeight+5);
-            marble.position.z = terrainHeight; // Marble radius
+            marble.position.z.set(terrainHeight); // Marble radius
 
             // Boundary check to prevent marble from leaving terrain
             marble.position.x = Math.max(-49, Math.min(49, marble.position.x));
