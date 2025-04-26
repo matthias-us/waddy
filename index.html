@@ -226,7 +226,7 @@
             // Keep marble on terrain surface
             const terrainHeight = getTerrainHeight(marble.position.x, marble.position.y);
             //marble.position.set(marble.position.x, marble.position.y, terrainHeight+5);
-            marble.position.z.set(terrainHeight); // Marble radius
+            marble.position.z = terrainHeight + 5.0; // Marble radius
 
             // Boundary check to prevent marble from leaving terrain
             marble.position.x = Math.max(-49, Math.min(49, marble.position.x));
