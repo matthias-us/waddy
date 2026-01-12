@@ -175,14 +175,33 @@
         const dt = 1 / 60; // Time step (60 FPS)
 
         function getTerrainHeight(x, y) {
-            // Interpolate height from terrain vertices
-            const gridX = Math.floor((x + 50) / 100 * (width - 1));
-            const gridY = Math.floor((y + 50) / 100 * (height - 1));
-            const idx = (gridY * width + gridX) * 3 + 2;
-            if (idx >= 0 && idx < vertices.length) {
-                return vertices[idx];
+            // Convert world coordinates to grid coordinates
+            const gx = (x + 50) / 100 * (width - 1);
+            const gy = (y + 50) / 100 * (height - 1);
+
+            // Get the four surrounding grid points
+            const x0 = Math.floor(gx);
+            const x1 = Math.min(x0 + 1, width - 1);
+            const y0 = Math.floor(gy);
+            const y1 = Math.min(y0 + 1, height - 1);
+
+            // Clamp to terrain bounds
+            if (x0 < 0 || x0 >= width || y0 < 0 || y0 >= height) {
+                return 0;
             }
-            return 0;
+
+            // Get heights at the four corners
+            const h00 = vertices[(y0 * width + x0) * 3 + 2];
+            const h10 = vertices[(y0 * width + x1) * 3 + 2];
+            const h01 = vertices[(y1 * width + x0) * 3 + 2];
+            const h11 = vertices[(y1 * width + x1) * 3 + 2];
+
+            // Bilinear interpolation
+            const tx = gx - x0;
+            const ty = gy - y0;
+            const h0 = h00 * (1 - tx) + h10 * tx;
+            const h1 = h01 * (1 - tx) + h11 * tx;
+            return h0 * (1 - ty) + h1 * ty;
         }
 
         function getTerrainSlope(x, y) {
@@ -225,8 +244,7 @@
 
             // Keep marble on terrain surface
             const terrainHeight = getTerrainHeight(marble.position.x, marble.position.y);
-            //marble.position.set(marble.position.x, marble.position.y, terrainHeight+5);
-            marble.position.z = terrainHeight + 5.0; // Marble radius
+            marble.position.z = terrainHeight + 1.0; // Marble radius (1.0) to sit on surface
 
             // Boundary check to prevent marble from leaving terrain
             marble.position.x = Math.max(-49, Math.min(49, marble.position.x));
